@@ -1,3 +1,5 @@
+from datetime import date
+import datetime
 import json
 import requests
 import os
@@ -194,7 +196,12 @@ class MetarDownloader:
 
 if __name__ == "__main__":
     # Example usage
+    date_str = datetime.datetime.now().strftime("%Y_%m_%d")
+    filename = f"{date_str}_update.json"
+    url = f"https://www.taoyuan-airport.com/uploads/fos/{date_str}_update.xls"
+
     downloader = FileDownloader()
+    _ = downloader.download_and_store_as_json(url, filename, verify=False)
     metar_downloader = MetarDownloader()
     m, t = metar_downloader.fetch_metar_taf("RCTP")
     if m:

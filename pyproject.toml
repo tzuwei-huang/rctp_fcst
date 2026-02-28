@@ -9,5 +9,6 @@ dependencies = [
     "pandas>=3.0.1",
     "python-dotenv>=1.2.1",
     "python-telegram-bot>=22.6",
+    "pytz>=2025.2",
     "xlrd>=2.0.2",
 ]

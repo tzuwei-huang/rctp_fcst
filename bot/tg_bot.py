@@ -178,10 +178,10 @@ class TelegramBot:
         full_text_marker = " (完整)" if show_all else ""
         
         current_msg = f"<b>{display_title}{full_text_marker}</b>\n"
-        current_msg += f"(台北時間：{now_taipei.strftime('%Y-%m-%d %H:%M')})\n"
+        current_msg += f"(請求時間：{now_taipei.strftime('%Y-%m-%d %H:%M')})\n"
         current_msg += "<pre>"
-        current_msg += f"{'時間':<21} {'出境':<6} {'過境':<6}\n"
-        current_msg += "-" * 36 + "\n"
+        current_msg += f"{'時間':<11} {'出境':<5} {'過境':<8}\n"
+        current_msg += "-" * 26 + "\n"
         
         for r in final_list:
             rec_date = r['_date']
@@ -191,13 +191,15 @@ class TelegramBot:
             try:
                 start_h = time_range.split(':')[0]
                 end_h = f"{(int(start_h) + 1):02d}"
+                if start_h == "00":
+                    start_h = "24"
                 display_time = f"{rec_date.strftime('%m/%d')} {start_h}~{end_h}"
             except:
                 display_time = f"{rec_date.strftime('%m/%d')} {time_range}"
             
             out_count = r.get('出境桃園', 0)
             transfer_count = r.get('到站轉機', 0)
-            line = f"{display_time:<21} {out_count:<6} {transfer_count:<6}\n"
+            line = f"{display_time:<12} {out_count:<6} {transfer_count:<6}\n"
             
             # Telegram has a limit of 4096 characters.
             if len(current_msg + line + "</pre>") > 4000:

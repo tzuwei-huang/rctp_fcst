@@ -163,6 +163,40 @@ class FileDownloader:
             print(f"Error downloading {url}: {e}")
             return None
 
+class MetarDownloader:
+    """
+    A class to fetch METAR and TAF data for a specific station.
+    """
+    def __init__(self):
+        self.base_url = "https://aviationweather.gov/api/data/metar"
+
+    def fetch_metar_taf(self, station_id: str = "RCTP"):
+        """
+        Fetches METAR and TAF for the given station ID.
+        Returns a tuple of (metar, taf) or (None, None) on error.
+        """
+        url = f"{self.base_url}?ids={station_id}&taf=1&format=json"
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data or not isinstance(data, list):
+                return None, None
+            
+            station_data = data[0]
+            metar = station_data.get('rawOb')
+            taf = station_data.get('rawTaf')
+            return metar, taf
+        except Exception as e:
+            print(f"Error fetching METAR for {station_id}: {e}")
+            return None, None
+
 if __name__ == "__main__":
     # Example usage
     downloader = FileDownloader()
+    metar_downloader = MetarDownloader()
+    m, t = metar_downloader.fetch_metar_taf("RCTP")
+    if m:
+        print(f"METAR: {m}")
+        print(f"TAF: {t}")

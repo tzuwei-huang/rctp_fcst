@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import pytz
+import httpx
 
 from dotenv import load_dotenv
 from telegram import Update, BotCommand
@@ -12,7 +13,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Add parent directory to path to import downloader
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from downloader import FileDownloader
+from downloader import FileDownloader, MetarDownloader
 
 # Enable logging
 logging.basicConfig(
@@ -26,6 +27,7 @@ class TelegramBot:
     def __init__(self, token: str):
         self.token = token
         self.downloader = FileDownloader(download_dir="Downloads")
+        self.metar_downloader = MetarDownloader()
 
     async def post_init(self, application):
         """Register commands with Telegram so they show up in the menu."""
@@ -34,6 +36,7 @@ class TelegramBot:
             BotCommand("t1all", "獲取第一航廈至明日結束的所有預報"),
             BotCommand("t2", "獲取第二航廈未來 12 小時預報"),
             BotCommand("t2all", "獲取第二航廈至明日結束的所有預報"),
+            BotCommand("metar", "獲取桃園機場 (RCTP) 氣象資訊"),
             BotCommand("help", "顯示說明文字"),
         ]
         await application.bot.set_my_commands(commands)
@@ -47,6 +50,7 @@ class TelegramBot:
             "/t1all - 獲取第一航廈至明日結束的預報\n"
             "/t2 - 獲取第二航廈未來 12 小時預報\n"
             "/t2all - 獲取第二航廈至明日結束的預報\n"
+            "/metar - 獲取桃園機場氣象資訊 (METAR/TAF)\n"
             "/help - 顯示此說明\n\n"
             "資料顯示為台北時間。"
         )
@@ -182,6 +186,31 @@ class TelegramBot:
     async def get_t2_all_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.get_terminal_data(update, "terminal_2", show_all=True)
 
+    async def get_metar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Fetch METAR for RCTP."""
+        try:
+            # Use run_in_executor to avoid blocking the event loop with synchronous requests
+            import asyncio
+            loop = asyncio.get_running_loop()
+            metar, taf = await loop.run_in_executor(
+                None, self.metar_downloader.fetch_metar_taf, "RCTP"
+            )
+                
+            if not metar:
+                await update.message.reply_text("目前無法取得 METAR 資料。")
+                return
+            
+            message = (
+                f"<b>桃園機場 (RCTP) 氣象資訊</b>\n\n"
+                f"<b>METAR:</b>\n<pre>{metar}</pre>\n\n"
+                f"<b>TAF:</b>\n<pre>{taf or '無 TAF 資料'}</pre>"
+            )
+            await update.message.reply_text(message, parse_mode=ParseMode.HTML)
+            
+        except Exception as e:
+            logging.error(f"Error fetching METAR: {e}")
+            await update.message.reply_text(f"擷取氣象資訊時發生錯誤: {e}")
+
     def run(self):
         application = ApplicationBuilder().token(self.token).post_init(self.post_init).build()
         
@@ -189,6 +218,7 @@ class TelegramBot:
         application.add_handler(CommandHandler('t1all', self.get_t1_all_data))
         application.add_handler(CommandHandler('t2', self.get_t2_data))
         application.add_handler(CommandHandler('t2all', self.get_t2_all_data))
+        application.add_handler(CommandHandler('metar', self.get_metar))
         application.add_handler(CommandHandler('help', self.help_command))
         
         print("Bot is running (Taipei Time Locked)... Press Ctrl+C to stop.")

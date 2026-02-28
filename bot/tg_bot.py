@@ -50,6 +50,7 @@ class TelegramBot:
     async def post_init(self, application):
         """Register commands with Telegram so they show up in the menu."""
         commands = [
+            BotCommand("start", "開始使用並顯示說明"),
             BotCommand("t1", "獲取第一航廈未來 12 小時預報"),
             BotCommand("t1all", "獲取第一航廈至明日結束的所有預報"),
             BotCommand("t2", "獲取第二航廈未來 12 小時預報"),
@@ -59,6 +60,10 @@ class TelegramBot:
         ]
         await application.bot.set_my_commands(commands)
         logging.info("Bot commands registered.")
+
+    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /start command."""
+        await self.help_command(update, context)
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Display help message."""
@@ -247,6 +252,7 @@ class TelegramBot:
     def run(self):
         application = ApplicationBuilder().token(self.token).post_init(self.post_init).build()
         
+        application.add_handler(CommandHandler('start', self.start_command))
         application.add_handler(CommandHandler('t1', self.get_t1_data))
         application.add_handler(CommandHandler('t1all', self.get_t1_all_data))
         application.add_handler(CommandHandler('t2', self.get_t2_data))

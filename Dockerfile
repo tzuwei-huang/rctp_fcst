@@ -1,5 +1,5 @@
 # Use a specialized uv image for faster dependency management
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder
 
 # Set the working directory
 WORKDIR /app
@@ -12,11 +12,11 @@ ENV UV_LINK_MODE=copy
 
 # Install dependencies first (for caching)
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv 
+RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
 # Final stage
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 WORKDIR /app
 

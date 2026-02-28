@@ -28,6 +28,24 @@ class TelegramBot:
         self.token = token
         self.downloader = FileDownloader(download_dir="Downloads")
         self.metar_downloader = MetarDownloader()
+        self.user_cooldowns = {} # user_id -> datetime
+
+    def _is_rate_limited(self, update: Update, cooldown_seconds: int = 5) -> bool:
+        """Check if a user is within the cooldown period."""
+        if not update.effective_user:
+            return False
+            
+        user_id = update.effective_user.id
+        now = datetime.datetime.now()
+        
+        if user_id in self.user_cooldowns:
+            last_time = self.user_cooldowns[user_id]
+            elapsed = (now - last_time).total_seconds()
+            if elapsed < cooldown_seconds:
+                return True
+        
+        self.user_cooldowns[user_id] = now
+        return False
 
     async def post_init(self, application):
         """Register commands with Telegram so they show up in the menu."""
@@ -56,24 +74,40 @@ class TelegramBot:
         await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
 
     def _get_file_for_date(self, target_date: datetime.date):
-        """Helper to try getting a file for a specific date (with fallback)."""
+        """Helper to try getting a file for a specific date (with caching)."""
         date_str = target_date.strftime("%Y_%m_%d")
         
+        def should_download(path):
+            if not os.path.exists(path):
+                return True
+            # Cache for 10 minutes
+            file_age = datetime.datetime.now().timestamp() - os.path.getmtime(path)
+            return file_age > 600
+
         # Try _update first
         filename = f"{date_str}_update.json"
         url = f"https://www.taoyuan-airport.com/uploads/fos/{date_str}_update.xls"
-        file_path = self.downloader.download_and_store_as_json(url, filename, verify=False)
+        file_path = os.path.join(self.downloader.download_dir, filename)
+        
+        if should_download(file_path):
+            file_path = self.downloader.download_and_store_as_json(url, filename, verify=False)
         
         # Fallback to base
-        if not file_path:
+        if not file_path or not os.path.exists(file_path):
             filename = f"{date_str}.json"
             url = f"https://www.taoyuan-airport.com/uploads/fos/{date_str}.xls"
-            file_path = self.downloader.download_and_store_as_json(url, filename, verify=False)
+            file_path = os.path.join(self.downloader.download_dir, filename)
+            if should_download(file_path):
+                file_path = self.downloader.download_and_store_as_json(url, filename, verify=False)
             
         return file_path
 
     async def get_terminal_data(self, update: Update, terminal_key: str, show_all: bool = False):
         """Fetch and display terminal data. If show_all=True, shows until end of tomorrow."""
+        if self._is_rate_limited(update):
+            await update.message.reply_text("請求太頻繁，請稍候再試。")
+            return
+
         now_taipei = datetime.datetime.now(TAIPEI_TZ)
         today = now_taipei.date()
         tomorrow = (now_taipei + datetime.timedelta(days=1)).date()

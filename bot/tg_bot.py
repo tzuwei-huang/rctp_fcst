@@ -5,7 +5,7 @@ import json
 import logging
 
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, BotCommand
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
@@ -22,19 +22,36 @@ logging.basicConfig(
 class TelegramBot:
     def __init__(self, token: str):
         self.token = token
-        self.downloader = FileDownloader(download_dir="test_downloads")
+        self.downloader = FileDownloader(download_dir="Downloads")
 
-    async def get_t2_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Fetch and display newest T2 data."""
+    async def post_init(self, application):
+        """Register commands with Telegram so they show up in the menu."""
+        commands = [
+            BotCommand("t1", "獲取第一航廈最新預報資料"),
+            BotCommand("t2", "獲取第二航廈最新預報資料"),
+            BotCommand("help", "顯示說明文字"),
+        ]
+        await application.bot.set_my_commands(commands)
+        print("Bot commands registered.")
+
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Display help message."""
+        help_text = (
+            "<b>桃園機場航班人次預報 Bot</b>\n\n"
+            "/t1 - 獲取第一航廈最新出境與過境預報\n"
+            "/t2 - 獲取第二航廈最新出境與過境預報\n"
+            "/help - 顯示此說明"
+        )
+        await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
+
+    async def get_terminal_data(self, update: Update, terminal_key: str):
+        """Generic method to fetch and display terminal data."""
         date_str = datetime.datetime.now().strftime("%Y_%m_%d")
         filename = f"{date_str}_update.json"
         url = f"https://www.taoyuan-airport.com/uploads/fos/{date_str}_update.xls"
+        ""
         
-        file_path = os.path.join("test_downloads", filename)
-        
-        # Download if not exists or if it's been an hour (simplified check)
-        # For simplicity, we just download it on every command in this example, 
-        # but in production, you might want to cache it.
+        # Download and store
         file_path = self.downloader.download_and_store_as_json(url, filename, verify=False)
         
         if not file_path or not os.path.exists(file_path):
@@ -44,47 +61,50 @@ class TelegramBot:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
-        t2_table = data.get('data', {}).get('terminal_2', {})
-        records = t2_table.get('records', [])
-        title = t2_table.get('title', "第二航廈預報表")
+        table_data = data.get('data', {}).get(terminal_key, {})
+        records = table_data.get('records', [])
+        title = table_data.get('title', f"{terminal_key.upper()} 預報表")
 
         if not records:
             await update.message.reply_text(f"找不到 {title} 的資料。")
             return
 
-        # Format as a simple table (showing first few relevant columns for readability)
+        # Format as a simple table
         message = f"<b>{title}</b>\n"
         message += "<pre>"
-        message += f"{'時間':<15} {'入境':<5} {'出境':<5} {'合計':<5}\n"
-        message += "-" * 35 + "\n"
+        message += f"{'時間':<15} {'出境':<6} {'過境':<6}\n"
+        message += "-" * 30 + "\n"
         
-        # Show upcoming hours (up to 10 rows for brevity)
         now_hour = datetime.datetime.now().hour
         count = 0
         for r in records:
-            # Simple check to show current and future hours
             time_str = r.get('時間區間', '')
             try:
                 hour = int(time_str.split(':')[0])
                 if hour >= now_hour:
-                    in_count = r.get('入境桃園', 0)
                     out_count = r.get('出境桃園', 0)
-                    total = r.get('合計', 0)
-                    message += f"{time_str:<15} {in_count:<5} {out_count:<5} {total:<5}\n"
+                    transfer_count = r.get('到站轉機', 0)
+                    message += f"{time_str:<15} {out_count:<6} {transfer_count:<6}\n"
                     count += 1
                 if count >= 10: break
             except:
                 continue
         
         message += "</pre>"
-        
         await update.message.reply_text(message, parse_mode=ParseMode.HTML)
 
+    async def get_t1_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await self.get_terminal_data(update, "terminal_1")
+
+    async def get_t2_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await self.get_terminal_data(update, "terminal_2")
+
     def run(self):
-        application = ApplicationBuilder().token(self.token).build()
+        application = ApplicationBuilder().token(self.token).post_init(self.post_init).build()
         
-        t2_handler = CommandHandler('t2', self.get_t2_data)
-        application.add_handler(t2_handler)
+        application.add_handler(CommandHandler('t1', self.get_t1_data))
+        application.add_handler(CommandHandler('t2', self.get_t2_data))
+        application.add_handler(CommandHandler('help', self.help_command))
         
         print("Bot is running... Press Ctrl+C to stop.")
         application.run_polling()

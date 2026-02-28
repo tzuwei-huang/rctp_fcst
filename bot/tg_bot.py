@@ -187,11 +187,11 @@ class TelegramBot:
             rec_date = r['_date']
             time_range = r.get('時間區間', '')
             
-            # 格式化為 "MM/DD HH:00~HH:00"
+            # 格式化為 "MM/DD HH~HH"
             try:
                 start_h = time_range.split(':')[0]
                 end_h = f"{(int(start_h) + 1):02d}"
-                display_time = f"{rec_date.strftime('%m/%d')} {start_h}:00~{end_h}:00"
+                display_time = f"{rec_date.strftime('%m/%d')} {start_h}~{end_h}"
             except:
                 display_time = f"{rec_date.strftime('%m/%d')} {time_range}"
             

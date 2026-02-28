@@ -130,7 +130,7 @@ class TelegramBot:
         
         message = f"<b>{display_title}</b>\n"
         message += "<pre>"
-        message += f"{'時間':<15} {'出境':<6} {'過境':<6}\n"
+        message += f"{'時間':<14} {'出境':<7} {'過境':<6}\n"
         message += "-" * 30 + "\n"
         
         for r in final_list:
@@ -143,7 +143,7 @@ class TelegramBot:
             
             out_count = r.get('出境桃園', 0)
             transfer_count = r.get('到站轉機', 0)
-            message += f"{display_time:<15} {out_count:<6} {transfer_count:<6}\n"
+            message += f"{display_time:<15} {out_count:<8} {transfer_count:<6}\n"
         
         message += "</pre>"
         

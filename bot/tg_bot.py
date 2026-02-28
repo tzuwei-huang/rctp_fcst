@@ -141,7 +141,7 @@ class TelegramBot:
         current_msg = f"<b>{display_title}{full_text_marker}</b>\n"
         current_msg += f"(台北時間：{now_taipei.strftime('%Y-%m-%d %H:%M')})\n"
         current_msg += "<pre>"
-        current_msg += f"{'時間':<21} {'出境':<6} {'轉機':<6}\n"
+        current_msg += f"{'時間':<21} {'出境':<6} {'過境':<6}\n"
         current_msg += "-" * 36 + "\n"
         
         for r in final_list:

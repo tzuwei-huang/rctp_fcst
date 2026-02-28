@@ -36,7 +36,7 @@ class TelegramBot:
             BotCommand("t1all", "獲取第一航廈至明日結束的所有預報"),
             BotCommand("t2", "獲取第二航廈未來 12 小時預報"),
             BotCommand("t2all", "獲取第二航廈至明日結束的所有預報"),
-            BotCommand("metar", "獲取桃園機場 (RCTP) 氣象資訊"),
+            BotCommand("metar", "獲取桃園機場氣象資訊"),
             BotCommand("help", "顯示說明文字"),
         ]
         await application.bot.set_my_commands(commands)
@@ -52,7 +52,6 @@ class TelegramBot:
             "/t2all - 獲取第二航廈至明日結束的預報\n"
             "/metar - 獲取桃園機場氣象資訊 (METAR/TAF)\n"
             "/help - 顯示此說明\n\n"
-            "資料顯示為台北時間。"
         )
         await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
 
@@ -201,7 +200,7 @@ class TelegramBot:
                 return
             
             message = (
-                f"<b>桃園機場 (RCTP) 氣象資訊</b>\n\n"
+                f"<b>桃園機場氣象資訊</b>\n\n"
                 f"<b>METAR:</b>\n<pre>{metar}</pre>\n\n"
                 f"<b>TAF:</b>\n<pre>{taf or '無 TAF 資料'}</pre>"
             )
@@ -221,7 +220,7 @@ class TelegramBot:
         application.add_handler(CommandHandler('metar', self.get_metar))
         application.add_handler(CommandHandler('help', self.help_command))
         
-        print("Bot is running (Taipei Time Locked)... Press Ctrl+C to stop.")
+        print("Bot is running... Press Ctrl+C to stop.")
         application.run_polling()
 
 if __name__ == "__main__":

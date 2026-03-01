@@ -1,1 +1,0 @@
-sudo docker run --name rctp_fcst_tg_bot --network host --env-file .env -itd rctp_fcst_tg_bot

@@ -32,18 +32,28 @@ class FileDownloader:
                 
                 # Title search in the first few rows (usually row 1)
                 title = "Unknown Table"
-                for r in range(min(3, len(df))):
+                header_row_idx = 2 # Default header row
+                
+                for r in range(min(5, len(df))):
                     row_vals = df.iloc[r, start_col:end_col].tolist()
                     for val in row_vals:
                         val_str = str(val)
                         if val_str and val_str != 'nan' and '預報表' in val_str:
                             title = val_str
+                            # Usually the headers are in the next row or the one after
+                            # But we'll look for "時間區間" to be sure
                             break
                     if title != "Unknown Table":
                         break
+                
+                # Find the header row (the one containing "時間區間")
+                for r in range(min(10, len(df))):
+                    if "時間區間" in [str(x).strip() for x in df.iloc[r, start_col:end_col].tolist()]:
+                        header_row_idx = r
+                        break
 
-                # Row 2 is the actual column headers
-                raw_headers = table_df.iloc[2].tolist()
+                # Row at header_row_idx is the actual column headers
+                raw_headers = df.iloc[header_row_idx, start_col:end_col].tolist()
                 headers = []
                 for i, h in enumerate(raw_headers):
                     h_str = str(h).strip()
@@ -56,8 +66,8 @@ class FileDownloader:
                         else:
                             headers.append(h_str)
 
-                # Data starts from row 3
-                data_rows = table_df.iloc[3:].copy()
+                # Data starts from row header_row_idx + 1
+                data_rows = table_df.iloc[header_row_idx+1:].copy()
                 data_rows.columns = headers
                 
                 # Drop rows where the first column (usually '時間區間') is NaN
@@ -70,20 +80,13 @@ class FileDownloader:
                         data_rows[col] = pd.to_numeric(data_rows[col], errors='ignore')
                         
                         # If the column is now numeric, check if it can be represented as integers
-                        # We use a check to see if all non-NaN values are equal to their integer cast
                         if pd.api.types.is_float_dtype(data_rows[col]):
                             non_nan = data_rows[col].dropna()
-                            if (non_nan == non_nan.astype(int)).all():
-                                # Use nullable integer type to handle NaNs if any
+                            if not non_nan.empty and (non_nan == non_nan.astype(int)).all():
                                 data_rows[col] = data_rows[col].astype('Int64')
                     except:
                         pass
 
-                # Convert records and ensure 'Int64' (nullable int) or normal ints are JSON serializable
-                # records = data_rows.to_dict(orient='records')
-                # But to_dict with orient='records' sometimes leaves pd.NA/NaN as types that json.dump doesn't like or as floats
-                # We'll use a safer approach: replace NaN/pd.NA with 0 if it's a count, then convert to int
-                
                 def sanitize_value(v):
                     if pd.isna(v):
                         return 0
@@ -105,15 +108,42 @@ class FileDownloader:
                     "records": records
                 }
 
-            # Define segments based on inspection of the Excel structure
-            tables = {
-                "total": extract_table(0, 9),
-                "terminal_1": extract_table(10, 16),
-                "terminal_2": extract_table(17, 23)
-            }
+            # Find all columns that contain '預報表' in any of the first few rows
+            title_cols = []
+            for c in range(df.shape[1]):
+                for r in range(min(5, len(df))):
+                    val = str(df.iloc[r, c])
+                    if '預報表' in val:
+                        title_cols.append((c, val))
+                        break
+            
+            tables = {}
+            if not title_cols:
+                # Fallback to fixed mapping if no titles found (though this shouldn't happen)
+                tables = {
+                    "total": extract_table(0, 9),
+                    "terminal_1": extract_table(10, 16),
+                    "terminal_2": extract_table(17, 23)
+                }
+            else:
+                for i, (start_col, title) in enumerate(title_cols):
+                    # End col is either the next start_col or the end of the sheet
+                    # We subtract 1 if the next col is empty, but the extract_table handles it
+                    end_col = title_cols[i+1][0] if i+1 < len(title_cols) else df.shape[1]
+                    
+                    key = None
+                    if "總計" in title: key = "total"
+                    elif "第一航廈" in title: key = "terminal_1"
+                    elif "第二航廈" in title: key = "terminal_2"
+                    
+                    if key:
+                        tables[key] = extract_table(start_col, end_col)
+            
             return tables
         except Exception as e:
             print(f"Failed to parse Taoyuan Airport Excel: {e}")
+            import traceback
+            traceback.print_exc()
             return {"raw_error": str(e)}
 
     def download_and_store_as_json(self, url: str, filename: str, verify: bool = True):

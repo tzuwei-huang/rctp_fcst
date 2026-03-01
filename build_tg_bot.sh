@@ -1,1 +1,0 @@
-sudo docker build -t rctp_fcst_tg_bot .

@@ -107,4 +107,4 @@ Temporary Items
 .apdisk
 .env
 Downloads
-
+__pycache__

@@ -197,7 +197,7 @@ class TelegramBot:
             except:
                 display_time = f"{rec_date.strftime('%m/%d')} {time_range}"
             
-            out_count = r.get('出境桃園', 0)
+            out_count = r.get('出發', 0)
             transfer_count = r.get('到站轉機', 0)
             line = f"{display_time:<12} {out_count:<6} {transfer_count:<6}\n"
             
